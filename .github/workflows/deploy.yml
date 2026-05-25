@@ -1,0 +1,73 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Connect to Tailscale
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TAILSCALE_CLIENT_ID }}
+          oauth-secret:    ${{ secrets.TAILSCALE_CLIENT_SECRET }}
+          tags:            tag:ci
+
+      - name: Setup SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Pull and restart
+        run: |
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
+            GHCR_USER="${{ github.actor }}" \
+            IMAGE="${{ env.IMAGE }}:${{ github.sha }}" \
+            bash -s <<'REMOTE'
+          set -euo pipefail
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+          docker pull "$IMAGE"
+          docker stop short 2>/dev/null || true
+          docker rm   short 2>/dev/null || true
+          docker run -d \
+            --name short \
+            --restart unless-stopped \
+            -p 8080:8080 \
+            -v /opt/short/config:/config:ro \
+            "$IMAGE"
+          REMOTE
