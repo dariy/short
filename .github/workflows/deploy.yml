@@ -55,12 +55,18 @@ jobs:
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Pull and restart
+        env:
+          SSH_DEST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+          GHCR_TOKEN: ${{ secrets.PACKAGE_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          IMAGE: ${{ env.IMAGE }}:${{ github.sha }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
         run: |
-          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
-            GHCR_USER="${{ github.actor }}" \
-            IMAGE="${{ env.IMAGE }}:${{ github.sha }}" \
-            PORT="${{ secrets.DEPLOY_PORT }}" \
+          ssh "$SSH_DEST" \
+            GHCR_TOKEN="$GHCR_TOKEN" \
+            GHCR_USER="$GHCR_USER" \
+            IMAGE="$IMAGE" \
+            PORT="$PORT" \
             bash -s <<'REMOTE'
           set -euo pipefail
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
