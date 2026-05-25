@@ -58,6 +58,7 @@ jobs:
             GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
             GHCR_USER="${{ github.actor }}" \
             IMAGE="${{ env.IMAGE }}:${{ github.sha }}" \
+            PORT="${{ secrets.DEPLOY_PORT }}" \
             bash -s <<'REMOTE'
           set -euo pipefail
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
@@ -67,7 +68,7 @@ jobs:
           docker run -d \
             --name short \
             --restart unless-stopped \
-            -p 8080:8080 \
+            -p "${PORT}:8080" \
             -v /opt/short/config:/config:ro \
             "$IMAGE"
           REMOTE
