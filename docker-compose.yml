@@ -1,0 +1,11 @@
+services:
+  short:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config:/config:ro
+    restart: unless-stopped
+    environment:
+      CONFIG_PATH: /config/links.yml
+      LISTEN_ADDR: :8080
