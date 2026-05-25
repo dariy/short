@@ -62,13 +62,9 @@ jobs:
           IMAGE: ${{ env.IMAGE }}:${{ github.sha }}
           PORT: ${{ secrets.DEPLOY_PORT }}
         run: |
-          ssh "$SSH_DEST" \
-            GHCR_TOKEN="$GHCR_TOKEN" \
-            GHCR_USER="$GHCR_USER" \
-            IMAGE="$IMAGE" \
-            PORT="$PORT" \
-            bash -s <<'REMOTE'
+          ssh "$SSH_DEST" bash -s "$GHCR_TOKEN" "$GHCR_USER" "$IMAGE" "$PORT" <<'REMOTE'
           set -euo pipefail
+          GHCR_TOKEN="$1" GHCR_USER="$2" IMAGE="$3" PORT="$4"
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           docker pull "$IMAGE"
           docker stop short 2>/dev/null || true
