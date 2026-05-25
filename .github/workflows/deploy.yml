@@ -3,6 +3,8 @@ name: Deploy
 on:
   push:
     branches: [master]
+    paths-ignore:
+      - 'config/links.yml'
   workflow_dispatch:
 
 env:
@@ -74,13 +76,11 @@ jobs:
           GHCR_TOKEN="$1" GHCR_USER="$2" IMAGE="$3" PORT="$4"
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           docker pull "$IMAGE"
-          mkdir -p /opt/short/config
           docker stop short 2>/dev/null || true
           docker rm   short 2>/dev/null || true
           docker run -d \
             --name short \
             --restart unless-stopped \
             -p "${PORT}:8080" \
-            -v /opt/short/config:/config:ro \
             "$IMAGE"
           REMOTE
